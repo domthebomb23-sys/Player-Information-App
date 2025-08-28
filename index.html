@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Buffalo Bills 2024 Roster</title>
+    <style>
+        body { font-family: Arial, sans-serif; background: #f7f7f7; margin: 0; padding: 0; }
+        .container { max-width: 1200px; margin: 40px auto; background: #fff; padding: 24px; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.08); }
+        h1 { text-align: center; }
+        .dropdown { margin-bottom: 24px; text-align: center; }
+        .section { margin-bottom: 32px; }
+        .section h2 { margin-top: 0; }
+        .position-group { margin-bottom: 16px; }
+        .position-group h3 { margin: 8px 0; }
+        .players { display: flex; flex-wrap: wrap; gap: 16px; }
+        .player-card { background: #f0f4fa; border-radius: 6px; padding: 12px; width: 180px; text-align: center; box-shadow: 0 1px 4px rgba(0,0,0,0.04); }
+        .player-card img { width: 80px; height: 80px; border-radius: 50%; object-fit: cover; margin-bottom: 8px; }
+        .player-name { font-weight: bold; margin-bottom: 4px; }
+        .player-info { font-size: 0.95em; color: #333; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Buffalo Bills 2024 Roster</h1>
+        <div class="dropdown">
+            <label for="week-select">Select Week:</label>
+            <select id="week-select"></select>
+        </div>
+        <div id="roster-display"></div>
+    </div>
+    <script>
+    // Helper to parse CSV
+    function parseCSV(text) {
+        const lines = text.trim().split('\n');
+        const headers = lines[0].split(',');
+        return lines.slice(1).map(line => {
+            const values = [];
+            let inQuotes = false, value = '', i = 0;
+            for (let char of line) {
+                if (char === '"') inQuotes = !inQuotes;
+                else if (char === ',' && !inQuotes) { values.push(value); value = ''; }
+                else value += char;
+            }
+            values.push(value);
+            const obj = {};
+            headers.forEach((h, idx) => obj[h] = values[idx]);
+            return obj;
+        });
+    }
+
+    // Fetch and process CSV
+    fetch('buf_roster_info.csv')
+        .then(res => res.text())
+        .then(text => {
+            const data = parseCSV(text);
+            const weeks = [...new Set(data.map(p => parseInt(p.week)).sort((a,b) => a-b))];
+            const weekSelect = document.getElementById('week-select');
+            weeks.forEach(w => {
+                const opt = document.createElement('option');
+                opt.value = w;
+                opt.textContent = `Week ${w}`;
+                weekSelect.appendChild(opt);
+            });
+            function renderRoster(week) {
+                const roster = data.filter(p => parseInt(p.week) === week);
+                const sides = ['Offense', 'Defense', 'Special Teams'];
+                const sideGroups = {};
+                sides.forEach(side => sideGroups[side] = {});
+                roster.forEach(p => {
+                    if (!sideGroups[p.team_side][p.position]) sideGroups[p.team_side][p.position] = [];
+                    sideGroups[p.team_side][p.position].push(p);
+                });
+                let html = '';
+                sides.forEach(side => {
+                    html += `<div class="section"><h2>${side}</h2>`;
+                    Object.keys(sideGroups[side]).sort().forEach(pos => {
+                        html += `<div class="position-group"><h3>${pos}</h3><div class="players">`;
+                        sideGroups[side][pos].forEach(player => {
+                            html += `<div class="player-card">
+                                <img src="${player.headshot_url}" alt="${player.player_name}">
+                                <div class="player-name">${player.player_name}</div>
+                                <div class="player-info">#${player.jersey_number} &bull; ${player.position}</div>
+                            </div>`;
+                        });
+                        html += `</div></div>`;
+                    });
+                    html += `</div>`;
+                });
+                document.getElementById('roster-display').innerHTML = html;
+            }
+            weekSelect.addEventListener('change', e => renderRoster(parseInt(e.target.value)));
+            renderRoster(weeks[0]);
+        });
+    </script>
+</body>
+</html>
